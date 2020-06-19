@@ -1,5 +1,8 @@
+import sys.thread.Thread;
+import sys.net.UdpSocket;
+import sys.net.Host;
 
-@:enum abstract Priority(Int) from Int {
+@:enum abstract Severity(Int) from Int to Int {
     var emerg    = 0; /* system is unusable */
     var alert    = 1; /* action must be taken immediately */
     var crit     = 2; /* critical conditions */
@@ -10,7 +13,7 @@
     var debug    = 7; /* debug-level messages */
 }
 
-@:enum abstract Facility(Int) from Int {
+@:enum abstract Facility(Int) from Int to Int {
     var kern     =  0; /* kernel messages */
     var user     =  1; /* random user-level messages */
     var mail     =  2; /* mail system */
@@ -23,7 +26,10 @@
     var cron     =  9; /* clock daemon */
     var authpriv = 10; /* security/authorization messages (private) */
     var ftp      = 11; /* ftp daemon */
-	                   /* other codes through 15 reserved for system use */	   
+    var ntp      = 12; /* NTP subsystem */
+    var logaudit = 13; /* log audit */
+    var logalert = 14; /* log alert */
+    var clkdamon = 15; /* clock daemon */
     var local0   = 16; /* reserved for local use */
     var local1   = 17; /* reserved for local use */
     var local2   = 18; /* reserved for local use */
@@ -34,11 +40,49 @@
     var local7   = 23; /* reserved for local use */
 }
 
-@:enum abstract Option(Int) from Int {
-    var pid      = 0x01;    /* log the pid with each message */
-    var cons     = 0x02;    /* log on the console if errors in sending */
-    var odelay   = 0x04;    /* delay open until first syslog() (default) */
-    var ndelay   = 0x08;    /* don't delay open */
-    var nowait   = 0x10;    /* don't wait for console forks: DEPRECATED */
-    var perror   = 0x20;    /* log to stderr as well */
+class Syslog {
+    private static final w:Thread = Thread.create(sendMsgs);
+    private static var hostname:String = Host.localhost();
+    private static var ident:String = "";
+    private static var fac:Facility = Facility.user;
+    private function new () {}  // private constructor
+
+    private static function sendMsgs()  {
+        var s:UdpSocket = new UdpSocket(); 
+        var h:Host = new Host("localhost");
+        var connected:Bool = false;
+        
+        while (true) {
+            var m:String = Thread.readMessage(true);
+            if (!connected) {
+                try {
+                    s.connect(h, 514);
+                    connected = true;
+                } catch (e) {
+                    trace(e);
+                    trace(m);
+                }
+            }
+            if (connected) {
+                try {
+                    s.output.writeString(m);
+                } catch (e) {
+                    trace(e);
+                    s.close();
+                    connected = false;
+                    trace(m);
+                }
+            }
+        }
+    }
+    public static function openlog(ident:String, fac:Facility=Facility.user) {
+        Syslog.ident = ident;
+        Syslog.fac = fac;
+    }
+    public static function syslog(svr:Severity, msg:String) {
+        var pri:Int = svr | (fac<<3);
+        var ts = DateTools.format(Date.now(), "%b %d %H:%M:%S");
+        var l = '<${pri}>${ts} ${hostname} ${ident}: ${msg}';
+        w.sendMessage(l);
+    }
 }
