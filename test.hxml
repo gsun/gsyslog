@@ -1,0 +1,10 @@
+-cp test
+-main SyslogServer.hx 
+-js bin/server.js
+-L hxnodejs
+
+--next
+-cp src
+-cp test
+-main SyslogClient.hx 
+-hl bin/client.hl

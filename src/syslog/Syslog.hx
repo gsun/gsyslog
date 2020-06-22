@@ -1,3 +1,5 @@
+package syslog;
+
 import sys.thread.Thread;
 import sys.net.UdpSocket;
 import sys.net.Host;
